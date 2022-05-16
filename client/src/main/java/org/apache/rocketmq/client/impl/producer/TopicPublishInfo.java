@@ -16,12 +16,13 @@
  */
 package org.apache.rocketmq.client.impl.producer;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.rocketmq.client.common.ThreadLocalIndex;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TopicPublishInfo {
     private boolean orderTopic = false;
@@ -67,9 +68,11 @@ public class TopicPublishInfo {
     }
 
     public MessageQueue selectOneMessageQueue(final String lastBrokerName) {
+        //lastBrokerName是上一次选择的执行发送消息失败的Broker，第一次执行消息队列选择时，lastBrokerName为null
         if (lastBrokerName == null) {
             return selectOneMessageQueue();
         } else {
+            //如果lastBrokerName不为null，则取模。但是跟selectOneMessageQueue方法不一样的是：这里会尝试规避掉上次失败的Broker
             for (int i = 0; i < this.messageQueueList.size(); i++) {
                 int index = this.sendWhichQueue.incrementAndGet();
                 int pos = Math.abs(index) % this.messageQueueList.size();
@@ -84,6 +87,9 @@ public class TopicPublishInfo {
         }
     }
 
+    /**
+     * 可以看到，这里是取模的策略，下一次会自增再取余，也就是取紧挨着的下一个消息队列
+     */
     public MessageQueue selectOneMessageQueue() {
         int index = this.sendWhichQueue.incrementAndGet();
         int pos = Math.abs(index) % this.messageQueueList.size();
@@ -106,7 +112,7 @@ public class TopicPublishInfo {
     @Override
     public String toString() {
         return "TopicPublishInfo [orderTopic=" + orderTopic + ", messageQueueList=" + messageQueueList
-            + ", sendWhichQueue=" + sendWhichQueue + ", haveTopicRouterInfo=" + haveTopicRouterInfo + "]";
+                + ", sendWhichQueue=" + sendWhichQueue + ", haveTopicRouterInfo=" + haveTopicRouterInfo + "]";
     }
 
     public TopicRouteData getTopicRouteData() {
