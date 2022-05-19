@@ -173,6 +173,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                 log.info("the producer [{}] start OK. sendMessageWithVIPChannel={}", this.defaultMQProducer.getProducerGroup(),
                         this.defaultMQProducer.isSendMessageWithVIPChannel());
+                //状态由CREATE_JUST -> RUNNING
                 this.serviceState = ServiceState.RUNNING;
                 break;
             case RUNNING:

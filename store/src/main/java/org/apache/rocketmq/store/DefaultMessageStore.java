@@ -194,6 +194,7 @@ public class DefaultMessageStore implements MessageStore {
 
                 log.info("load over, and the max phy offset = {}", this.getMaxPhyOffset());
 
+                //延迟消息
                 if (null != scheduleMessageService) {
                     result = this.scheduleMessageService.load();
                 }

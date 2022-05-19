@@ -54,7 +54,7 @@ public class BrokerStartup {
     public static InternalLogger log;
 
     public static void main(String[] args) {
-        //这里的createBrokerController方法与NameServer的启动流程类似：创建各种参数、解析命令行、定时任务相关（定时获取NameServer）、钩子函数
+        //这里的createBrokerController方法与NameServer的启动流程类似：创建各种参数、解析命令行、定时任务相关（定时获取NameServer）、钩子函数。我们只看一些特殊点
         start(createBrokerController(args));
     }
 
@@ -101,6 +101,10 @@ public class BrokerStartup {
 
             final BrokerConfig brokerConfig = new BrokerConfig();
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+            /*
+            之前在NameServer的创建过程中，只创建了NettyServerConfig，而这里的Broker创建过程中除了创建NettyServerConfig之前，
+            还会创建NettyClientConfig。这是因为：Broker会充当客户端的角色，定时往NameServer发送心跳包；同时在事务消息中，也会向生产者回查消息
+             */
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
 
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
@@ -157,9 +161,11 @@ public class BrokerStartup {
             switch (messageStoreConfig.getBrokerRole()) {
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
+                    //如果是master节点，brokerId会被赋值为0（MixAll.MASTER_ID）
                     brokerConfig.setBrokerId(MixAll.MASTER_ID);
                     break;
                 case SLAVE:
+                    //slave节点的brokerId会是大于0的
                     if (brokerConfig.getBrokerId() <= 0) {
                         System.out.printf("Slave's brokerId must be > 0");
                         System.exit(-3);
@@ -170,6 +176,7 @@ public class BrokerStartup {
                     break;
             }
 
+            //如果使用到了DLeger（自动容灾切换）的话，brokerId会被强行赋值为-1
             if (messageStoreConfig.isEnableDLegerCommitLog()) {
                 brokerConfig.setBrokerId(-1);
             }

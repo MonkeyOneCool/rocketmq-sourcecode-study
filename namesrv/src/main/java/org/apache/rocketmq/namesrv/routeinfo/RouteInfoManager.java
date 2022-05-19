@@ -443,10 +443,12 @@ public class RouteInfoManager {
     }
 
     public void scanNotActiveBroker() {
+        //遍历brokerLiveTable
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, BrokerLiveInfo> next = it.next();
             long last = next.getValue().getLastUpdateTimestamp();
+            //如果上次心跳120s（BROKER_CHANNEL_EXPIRED_TIME）后都没有再收到Broker心跳，则移除该Broker，并关闭Socket连接
             if ((last + BROKER_CHANNEL_EXPIRED_TIME) < System.currentTimeMillis()) {
                 RemotingUtil.closeChannel(next.getValue().getChannel());
                 it.remove();

@@ -208,6 +208,7 @@ public class BrokerController {
     }
 
     public boolean initialize() throws CloneNotSupportedException {
+        //加载一些配置信息
         boolean result = this.topicConfigManager.load();
 
         result = result && this.consumerOffsetManager.load();
@@ -216,15 +217,19 @@ public class BrokerController {
 
         if (result) {
             try {
+                //加载消息存储组件
                 this.messageStore =
                         new DefaultMessageStore(this.messageStoreConfig, this.brokerStatsManager, this.messageArrivingListener,
                                 this.brokerConfig);
+                //加载DLeger
                 if (messageStoreConfig.isEnableDLegerCommitLog()) {
                     DLedgerRoleChangeHandler roleChangeHandler = new DLedgerRoleChangeHandler(this, (DefaultMessageStore) messageStore);
                     ((DLedgerCommitLog) ((DefaultMessageStore) messageStore).getCommitLog()).getdLedgerServer().getdLedgerLeaderElector().addRoleChangeHandler(roleChangeHandler);
                 }
+                //统计相关加载
                 this.brokerStats = new BrokerStats((DefaultMessageStore) this.messageStore);
                 //load plugin
+                //加载插件
                 MessageStorePluginContext context = new MessageStorePluginContext(messageStoreConfig, brokerStatsManager, messageArrivingListener, brokerConfig);
                 this.messageStore = MessageStoreFactory.build(context, this.messageStore);
                 this.messageStore.getDispatcherList().addFirst(new CommitLogDispatcherCalcBitMap(this.brokerConfig, this.consumerFilterManager));
@@ -234,13 +239,16 @@ public class BrokerController {
             }
         }
 
+        //加载磁盘文件
         result = result && this.messageStore.load();
 
         if (result) {
+            //Netty相关初始化
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
             fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
+            //初始化一些线程池
             this.sendMessageExecutor = new BrokerFixedThreadPoolExecutor(
                     this.brokerConfig.getSendMessageThreadPoolNums(),
                     this.brokerConfig.getSendMessageThreadPoolNums(),
@@ -384,6 +392,7 @@ public class BrokerController {
                 }
             }, 1000 * 10, 1000 * 60, TimeUnit.MILLISECONDS);
 
+            //获取NameServer地址，brokerOuterAPI是Broker的对外Netty客户端，和NameServer和Producer交互用的
             if (this.brokerConfig.getNamesrvAddr() != null) {
                 this.brokerOuterAPI.updateNameServerAddressList(this.brokerConfig.getNamesrvAddr());
                 log.info("Set user specified name server address: {}", this.brokerConfig.getNamesrvAddr());
@@ -837,6 +846,7 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
+        //启动一些组件
         if (this.messageStore != null) {
             this.messageStore.start();
         }
@@ -944,6 +954,7 @@ public class BrokerController {
 
     private void doRegisterBrokerAll(boolean checkOrderConfig, boolean oneway,
                                      TopicConfigSerializeWrapper topicConfigWrapper) {
+        //向所有的NameServer发送注册心跳的请求
         List<RegisterBrokerResult> registerBrokerResultList = this.brokerOuterAPI.registerBrokerAll(
                 this.brokerConfig.getBrokerClusterName(),
                 this.getBrokerAddr(),
@@ -957,6 +968,11 @@ public class BrokerController {
                 this.brokerConfig.isCompressedRegister());
 
         if (registerBrokerResultList.size() > 0) {
+            /*
+            这里需要留意的一点是：在上面的registerBrokerAll方法中，会向所有的NameServer发起请求注册心跳。
+            而这里的代码可以看到，只要拿到其中一个NameServer的注册结果进行更新就行了。这也就体现了NameServer集群
+            彼此之间无信息交换的特点
+             */
             RegisterBrokerResult registerBrokerResult = registerBrokerResultList.get(0);
             if (registerBrokerResult != null) {
                 if (this.updateMasterHAServerAddrPeriodically && registerBrokerResult.getHaServerAddr() != null) {
