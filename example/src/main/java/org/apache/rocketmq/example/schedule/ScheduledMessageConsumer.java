@@ -25,10 +25,11 @@ import org.apache.rocketmq.common.message.MessageExt;
 import java.util.List;
 
 public class ScheduledMessageConsumer {
-    
+
     public static void main(String[] args) throws Exception {
         // Instantiate message consumer
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("ExampleConsumer");
+        consumer.setNamesrvAddr("127.0.0.1:9876");
         // Subscribe topics
         consumer.subscribe("TestTopic", "*");
         // Register message listener

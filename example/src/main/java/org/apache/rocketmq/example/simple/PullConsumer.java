@@ -16,13 +16,6 @@
  */
 package org.apache.rocketmq.example.simple;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
 import org.apache.rocketmq.client.consumer.PullResult;
 import org.apache.rocketmq.client.consumer.store.ReadOffsetType;
@@ -31,6 +24,13 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.exception.RemotingException;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 @SuppressWarnings("deprecation")
 public class PullConsumer {
@@ -51,13 +51,14 @@ public class PullConsumer {
                 return new Thread(r, "PullConsumerThread");
             }
         });
+        Set<MessageQueue> topicTest = consumer.fetchSubscribeMessageQueues("TopicTest");
         for (String topic : consumer.getRegisterTopics()) {
 
             executors.execute(new Runnable() {
 
                 public void doSomething(List<MessageExt> msgs) {
                     //do your business
-
+                    System.out.println(msgs);
                 }
 
                 @Override

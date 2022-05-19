@@ -35,6 +35,7 @@ public class OpenTracingProducer {
 
         DefaultMQProducer producer = new DefaultMQProducer("ProducerGroupName");
         producer.getDefaultMQProducerImpl().registerSendMessageHook(new SendMessageOpenTracingHookImpl(tracer));
+        producer.setNamesrvAddr("127.0.0.1:9876");
         producer.start();
 
         try {

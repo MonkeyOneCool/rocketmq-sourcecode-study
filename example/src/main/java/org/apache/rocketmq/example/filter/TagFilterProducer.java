@@ -26,14 +26,15 @@ public class TagFilterProducer {
     public static void main(String[] args) throws Exception {
 
         DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
+        producer.setNamesrvAddr("127.0.0.1:9876");
         producer.start();
 
-        String[] tags = new String[] {"TagA", "TagB", "TagC"};
+        String[] tags = new String[]{"TagA", "TagB", "TagC"};
 
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < 9; i++) {
             Message msg = new Message("TagFilterTest",
-                tags[i % tags.length],
-                "Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
+                    tags[i % tags.length],
+                    "Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
 
             SendResult sendResult = producer.send(msg);
             System.out.printf("%s%n", sendResult);

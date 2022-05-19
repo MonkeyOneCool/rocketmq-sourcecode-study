@@ -23,6 +23,7 @@ public class ScheduledMessageProducer {
     public static void main(String[] args) throws Exception {
         // Instantiate a producer to send scheduled messages
         DefaultMQProducer producer = new DefaultMQProducer("ExampleProducerGroup");
+        producer.setNamesrvAddr("127.0.0.1:9876");
         // Launch producer
         producer.start();
         int totalMessagesToSend = 100;
@@ -33,9 +34,9 @@ public class ScheduledMessageProducer {
             // Send the message
             producer.send(message);
         }
-        
+
         // Shutdown producer after use.
         producer.shutdown();
     }
-    
+
 }
