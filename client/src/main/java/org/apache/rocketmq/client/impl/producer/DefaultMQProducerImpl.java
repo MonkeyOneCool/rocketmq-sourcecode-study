@@ -659,7 +659,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             //如果生产者中缓存了topic的路由信息，并且该路由信息中包含了消息队列，则直接返回该路由信息
             return topicPublishInfo;
         } else {
-            //如果没有缓存或没有包含消息队列，则向NameServer查询该topic的路由信息
+            //如果没有缓存或没有包含消息队列，则向NameServer查询默认topic（TBW102）的路由信息
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;

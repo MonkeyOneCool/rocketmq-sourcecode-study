@@ -596,7 +596,7 @@ public class MQClientInstance {
                 try {
                     TopicRouteData topicRouteData;
                     if (isDefault && defaultMQProducer != null) {
-                        //如果isDefault为true，则使用默认主题去查询
+                        //如果isDefault为true，则使用默认topic（TBW102）去查询
                         topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
                                 clientConfig.getMqClientApiTimeout());
                         if (topicRouteData != null) {
