@@ -618,6 +618,7 @@ public class CommitLog {
         String topic = msg.getTopic();
 //        int queueId msg.getQueueId();
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
+        //非事务和事务消息
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
             // Delay Delivery
@@ -636,7 +637,7 @@ public class CommitLog {
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
                 msg.setPropertiesString(MessageDecoder.messageProperties2String(msg.getProperties()));
 
-                //并且同时设置为延迟消息的主题和消息队列id
+                //并且同时设置为延迟消息的主题和消息队列id（这里就可以看到，如果是延迟消息的话，最终发往的topic会是SCHEDULE_TOPIC_XXXX(RMQ_SYS_SCHEDULE_TOPIC)，而不是原来本身的topic）
                 msg.setTopic(topic);
                 msg.setQueueId(queueId);
             }
@@ -677,7 +678,7 @@ public class CommitLog {
             msg.setStoreTimestamp(beginLockTimestamp);
 
             if (null == mappedFile || mappedFile.isFull()) {
-                //如果当前还没有生成CommitLog文件、又或者当前CommitLog文件满了的话，重新创建新的CommitLog文件（在这其中会进行内存到文件的映射MappedByteBuffer）
+                //如果当前还没有生成CommitLog文件、又或者当前CommitLog文件满了的话，则重新创建新的CommitLog文件（在这其中会使用到mmap内存映射文件）
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -685,12 +686,13 @@ public class CommitLog {
                 return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, null));
             }
 
-            //将消息追加到MappedFile中
+            //将消息追加到MappedFile中（顺序写）
             result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
             switch (result.getStatus()) {
                 case PUT_OK:
                     break;
                 case END_OF_FILE:
+                    //如果文件满了的话，就创建一个新文件，重新添加消息
                     unlockMappedFile = mappedFile;
                     // Create a new file, re-write the message
                     mappedFile = this.mappedFileQueue.getLastMappedFile(0);
@@ -859,6 +861,8 @@ public class CommitLog {
     public CompletableFuture<PutMessageStatus> submitFlushRequest(AppendMessageResult result, MessageExt messageExt) {
         // Synchronization flush
         if (FlushDiskType.SYNC_FLUSH == this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+            //同步刷盘
+            //单独启动一个线程GroupCommitService，每隔10ms统一刷盘
             final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
             if (messageExt.isWaitStoreMsgOK()) {
                 GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
@@ -867,13 +871,16 @@ public class CommitLog {
                 service.putRequest(request);
                 return request.future();
             } else {
+                //不等待的话（PROPERTY_WAIT_STORE_MSG_OK的值为false），直接返回（也就是转换成异步）
                 service.wakeup();
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
         }
         // Asynchronous flush
         else {
+            //异步刷盘
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                //堆外内存处理方式
                 flushCommitLogService.wakeup();
             } else {
                 commitLogService.wakeup();
