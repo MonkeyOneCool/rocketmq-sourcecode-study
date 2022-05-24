@@ -1411,7 +1411,7 @@ public class CommitLog {
                     // The next update ConsumeQueue information
                     //更新消息队列逻辑偏移量
                     CommitLog.this.topicQueueTable.put(key, ++queueOffset);
-                    //MQTT相关配置（本文不展开分析）
+                    //MQTT相关配置
                     CommitLog.this.multiDispatch.updateMultiQueueOffset(msgInner);
                     break;
                 default:
