@@ -302,7 +302,7 @@ public class MappedFileQueue {
 
     /**
      * 获取存储文件最小偏移量
-     * 并不是直接返回0，而是返回第一个MappedFile的第一条消息的偏移量
+     * 因为有定时删除的逻辑，所以并不是直接返回0，而是返回第一个MappedFile的第一条消息的偏移量
      */
     public long getMinOffset() {
 
@@ -489,6 +489,7 @@ public class MappedFileQueue {
      */
     /**
      * 根据消息偏移量offset查找MappedFile
+     * todo 如果跳到这个方法，查看91页，写详细分析和图
      */
     public MappedFile findMappedFileByOffset(final long offset, final boolean returnFirstOnNotFound) {
         try {
