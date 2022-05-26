@@ -291,8 +291,10 @@ public class MappedFile extends ReferenceResource {
                 try {
                     //We only append data to fileChannel or mappedByteBuffer, never both.
                     if (writeBuffer != null || this.fileChannel.position() != 0) {
+                        //堆外内存的方式刷盘
                         this.fileChannel.force(false);
                     } else {
+                        //内存映射的方式刷盘
                         this.mappedByteBuffer.force();
                     }
                 } catch (Throwable e) {
@@ -338,11 +340,15 @@ public class MappedFile extends ReferenceResource {
 
         if (writePos - lastCommittedPosition > 0) {
             try {
+                //创建共享缓存区
                 ByteBuffer byteBuffer = writeBuffer.slice();
+                //当前位置为上一次提交的位置
                 byteBuffer.position(lastCommittedPosition);
                 byteBuffer.limit(writePos);
                 this.fileChannel.position(lastCommittedPosition);
+                //从上一次提交的位置后到当前位置的数据写入到FileChannel中
                 this.fileChannel.write(byteBuffer);
+                //最后更新已提交的位置为当前位置
                 this.committedPosition.set(writePos);
             } catch (Throwable e) {
                 log.error("Error occurred when commit data to FileChannel.", e);
@@ -443,6 +449,7 @@ public class MappedFile extends ReferenceResource {
             return true;
         }
 
+        //堆外内存的清理
         clean(this.mappedByteBuffer);
         TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(this.fileSize * (-1));
         TOTAL_MAPPED_FILES.decrementAndGet();

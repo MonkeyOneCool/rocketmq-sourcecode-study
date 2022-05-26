@@ -321,6 +321,7 @@ public class MappedFileQueue {
     /**
      * 获取存储文件最大偏移量
      * 返回最后一个MappedFile的第一条消息的偏移量加上其当前的索引位置（即内存中ByteBuffer的当前写指针位置）
+     * 如果没有堆外内存的话，返回值和getMaxWrotePosition方法的结果一致
      */
     public long getMaxOffset() {
         //获取最后一个MappedFile
@@ -333,7 +334,6 @@ public class MappedFileQueue {
 
     /**
      * 相比于getMaxOffset方法，本方法只会返回已经写入的索引位置
-     * 如果没有ByteBuffer的话，返回值和getMaxOffset的结果一致
      */
     public long getMaxWrotePosition() {
         MappedFile mappedFile = getLastMappedFile();

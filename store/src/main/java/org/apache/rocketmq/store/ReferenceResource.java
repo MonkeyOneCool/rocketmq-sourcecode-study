@@ -47,6 +47,7 @@ public abstract class ReferenceResource {
             this.release();
         } else if (this.getRefCount() > 0) {
             if ((System.currentTimeMillis() - this.firstShutdownTimestamp) >= intervalForcibly) {
+                //没理解，感觉应该是“this.refCount.set(this.getRefCount() - 1000);”，引用数每次减少1000
                 this.refCount.set(-1000 - this.getRefCount());
                 this.release();
             }
