@@ -207,12 +207,15 @@ public class CommitLog {
      * When the normal exit, data recovery, all memory data have been flush
      */
     public void recoverNormally(long maxPhyOffsetOfConsumeQueue) {
+        //是否验证CRC32
         boolean checkCRCOnRecover = this.defaultMessageStore.getMessageStoreConfig().isCheckCRCOnRecover();
         final List<MappedFile> mappedFiles = this.mappedFileQueue.getMappedFiles();
         if (!mappedFiles.isEmpty()) {
             // Began to recover from the last third file
+            //从倒数第三个文件开始恢复
             int index = mappedFiles.size() - 3;
             if (index < 0)
+                //如果没有三个文件就从第一个文件开始恢复
                 index = 0;
 
             MappedFile mappedFile = mappedFiles.get(index);
@@ -220,15 +223,18 @@ public class CommitLog {
             long processOffset = mappedFile.getFileFromOffset();
             long mappedFileOffset = 0;
             while (true) {
+                //验证消息的合法性
                 DispatchRequest dispatchRequest = this.checkMessageAndReturnSize(byteBuffer, checkCRCOnRecover);
                 int size = dispatchRequest.getMsgSize();
                 // Normal data
+                //如果检查消息正确，并且消息长度大于0，则将mappedFileOffset移动到本条消息的长度位置处
                 if (dispatchRequest.isSuccess() && size > 0) {
                     mappedFileOffset += size;
                 }
                 // Come the end of the file, switch to the next file Since the
                 // return 0 representatives met last hole,
                 // this can not be included in truncate offset
+                //如果检查消息正确，但是消息长度等于0，说明已经到达文件最后处了
                 else if (dispatchRequest.isSuccess() && size == 0) {
                     index++;
                     if (index >= mappedFiles.size()) {
@@ -236,6 +242,7 @@ public class CommitLog {
                         log.info("recover last 3 physics file over, last mapped file " + mappedFile.getFileName());
                         break;
                     } else {
+                        //但是此时还有下一个CommitLog文件，则重置processOffset和mappedFileOffset，开始恢复下一个CommitLog文件
                         mappedFile = mappedFiles.get(index);
                         byteBuffer = mappedFile.sliceByteBuffer();
                         processOffset = mappedFile.getFileFromOffset();
@@ -244,18 +251,21 @@ public class CommitLog {
                     }
                 }
                 // Intermediate file read error
+                //如果该文件中的消息没有填满，则直接跳出循环
                 else if (!dispatchRequest.isSuccess()) {
                     log.info("recover physics file end, " + mappedFile.getFileName());
                     break;
                 }
             }
 
+            //更新指针
             processOffset += mappedFileOffset;
             this.mappedFileQueue.setFlushedWhere(processOffset);
             this.mappedFileQueue.setCommittedWhere(processOffset);
             this.mappedFileQueue.truncateDirtyFiles(processOffset);
 
             // Clear ConsumeQueue redundant data
+            //清理ConsumeQueue脏数据（processOffset是最大物理偏移量，在processOffset之后的文件需要删除掉）
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
@@ -469,10 +479,13 @@ public class CommitLog {
         final List<MappedFile> mappedFiles = this.mappedFileQueue.getMappedFiles();
         if (!mappedFiles.isEmpty()) {
             // Looking beginning to recover from which file
+            //正常退出时，是从倒数第三个文件开始遍历，而异常退出时是从最后一个文件开始遍历
             int index = mappedFiles.size() - 1;
             MappedFile mappedFile = null;
             for (; index >= 0; index--) {
+                //开始遍历
                 mappedFile = mappedFiles.get(index);
+                //找到需要恢复的文件点
                 if (this.isMappedFileMatchedRecover(mappedFile)) {
                     log.info("recover from this mapped file " + mappedFile.getFileName());
                     break;
@@ -480,6 +493,7 @@ public class CommitLog {
             }
 
             if (index < 0) {
+                //如果没找到的话，就从第一个文件开始
                 index = 0;
                 mappedFile = mappedFiles.get(index);
             }
@@ -488,14 +502,17 @@ public class CommitLog {
             long processOffset = mappedFile.getFileFromOffset();
             long mappedFileOffset = 0;
             while (true) {
+                //验证消息的合法性
                 DispatchRequest dispatchRequest = this.checkMessageAndReturnSize(byteBuffer, checkCRCOnRecover);
                 int size = dispatchRequest.getMsgSize();
 
                 if (dispatchRequest.isSuccess()) {
                     // Normal data
                     if (size > 0) {
+                        //这里和正常退出的逻辑是一样的，将mappedFileOffset移动到本条消息的长度位置处
                         mappedFileOffset += size;
 
+                        //将消息重新分发到ConsumeQueue文件和Index文件
                         if (this.defaultMessageStore.getMessageStoreConfig().isDuplicationEnable()) {
                             if (dispatchRequest.getCommitLogOffset() < this.defaultMessageStore.getConfirmOffset()) {
                                 this.defaultMessageStore.doDispatch(dispatchRequest);
@@ -515,6 +532,7 @@ public class CommitLog {
                             log.info("recover physics file over, last mapped file " + mappedFile.getFileName());
                             break;
                         } else {
+                            //这里的逻辑和正常退出的逻辑是一样的：此时还有下一个CommitLog文件，则重置processOffset和mappedFileOffset，开始恢复下一个CommitLog文件
                             mappedFile = mappedFiles.get(index);
                             byteBuffer = mappedFile.sliceByteBuffer();
                             processOffset = mappedFile.getFileFromOffset();
@@ -528,12 +546,14 @@ public class CommitLog {
                 }
             }
 
+            //这里的逻辑和正常退出的逻辑是一样的：更新指针
             processOffset += mappedFileOffset;
             this.mappedFileQueue.setFlushedWhere(processOffset);
             this.mappedFileQueue.setCommittedWhere(processOffset);
             this.mappedFileQueue.truncateDirtyFiles(processOffset);
 
             // Clear ConsumeQueue redundant data
+            //这里的逻辑和正常退出的逻辑是一样的：清理ConsumeQueue脏数据（processOffset是最大物理偏移量，在processOffset之后的文件需要删除掉）
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
@@ -566,6 +586,10 @@ public class CommitLog {
 
         if (this.defaultMessageStore.getMessageStoreConfig().isMessageIndexEnable()
                 && this.defaultMessageStore.getMessageStoreConfig().isMessageIndexSafe()) {
+            /*
+            如果messageIndexEnable为true的话，则选择CommitLog、ConsumeQueue和Index文件刷盘点中的最小值和当前文件进行比较。
+            如果当前文件的时间戳小，则说明当前文件是不完整的，恢复点从当前文件开始
+             */
             if (storeTimestamp <= this.defaultMessageStore.getStoreCheckpoint().getMinTimestampIndex()) {
                 log.info("find check timestamp, {} {}",
                         storeTimestamp,
@@ -573,6 +597,7 @@ public class CommitLog {
                 return true;
             }
         } else {
+            //如果messageIndexEnable为false的话，则只选择CommitLog和ConsumeQueue文件的刷盘点的最小值进行比较，Index文件的刷盘点不进行参与计算
             if (storeTimestamp <= this.defaultMessageStore.getStoreCheckpoint().getMinTimestamp()) {
                 log.info("find check timestamp, {} {}",
                         storeTimestamp,

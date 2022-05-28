@@ -175,16 +175,20 @@ public class DefaultMessageStore implements MessageStore {
         boolean result = true;
 
         try {
+            //如果abort文件存在，说明上一次退出是异常退出
             boolean lastExitOK = !this.isTempFileExist();
             log.info("last shutdown {}", lastExitOK ? "normally" : "abnormally");
 
             // load Commit Log
+            //加载CommitLog文件
             result = result && this.commitLog.load();
 
             // load Consume Queue
+            //加载ConsumeQueue文件
             result = result && this.loadConsumeQueue();
 
             if (result) {
+                //加载checkpoint文件
                 this.storeCheckpoint =
                         new StoreCheckpoint(StorePathConfigHelper.getStoreCheckpoint(this.messageStoreConfig.getStorePathRootDir()));
 
@@ -256,6 +260,7 @@ public class DefaultMessageStore implements MessageStore {
             }
             log.info("[SetReputOffset] maxPhysicalPosInLogicQueue={} clMinOffset={} clMaxOffset={} clConfirmedOffset={}",
                     maxPhysicalPosInLogicQueue, this.commitLog.getMinOffset(), this.commitLog.getMaxOffset(), this.commitLog.getConfirmOffset());
+            //设置物理偏移量，从这个物理偏移量开始转发消息给ConsumeQueue文件和Index文件
             this.reputMessageService.setReputFromOffset(maxPhysicalPosInLogicQueue);
             //Broker启动时会启动一个线程（ReputMessageService），将CommitLog文件中的内容分发到ConsumeQueue文件和Index文件
             this.reputMessageService.start();
@@ -1436,8 +1441,10 @@ public class DefaultMessageStore implements MessageStore {
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
         if (lastExitOK) {
+            //正常退出的文件恢复
             this.commitLog.recoverNormally(maxPhyOffsetOfConsumeQueue);
         } else {
+            //异常退出的文件恢复
             this.commitLog.recoverAbnormally(maxPhyOffsetOfConsumeQueue);
         }
 
@@ -1491,6 +1498,7 @@ public class DefaultMessageStore implements MessageStore {
             }
         }
 
+        //CommitLog文件中会缓存消息队列的偏移量
         this.commitLog.setTopicQueueTable(table);
     }
 
@@ -1533,6 +1541,7 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
+        //通过topic与队列id获取ConsumeQueue文件
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
         cq.putMessagePositionInfoWrapper(dispatchRequest, checkMultiDispatchQueue(dispatchRequest));
     }
@@ -2029,11 +2038,13 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                //从reputFromOffset偏移量开始读取CommitLog文件的数据
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
                         this.reputFromOffset = result.getStartOffset();
 
+                        //循环读取
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
                             //从CommitLog文件中构建一个DispatchRequest
                             DispatchRequest dispatchRequest =
