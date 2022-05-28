@@ -489,7 +489,6 @@ public class MappedFileQueue {
      */
     /**
      * 根据消息偏移量offset查找MappedFile
-     * todo 如果跳到这个方法，查看91页，写详细分析和图
      */
     public MappedFile findMappedFileByOffset(final long offset, final boolean returnFirstOnNotFound) {
         try {
@@ -504,6 +503,7 @@ public class MappedFileQueue {
                             this.mappedFileSize,
                             this.mappedFiles.size());
                 } else {
+                    //因为有定时删除文件的逻辑，所以第一个文件不一定是“00000000000000000000”，所以采用下面的算法来计算出offset所在的是第几个文件
                     int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));
                     MappedFile targetFile = null;
                     try {
