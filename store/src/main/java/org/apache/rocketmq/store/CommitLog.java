@@ -648,7 +648,7 @@ public class CommitLog {
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
             // Delay Delivery
             if (msg.getDelayTimeLevel() > 0) {
-                //如果消息的延迟级别大于0
+                //延迟消息的处理
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
@@ -894,6 +894,7 @@ public class CommitLog {
                         this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
                 flushDiskWatcher.add(request);
                 service.putRequest(request);
+                //返回一个空的CompletableFuture对象，以此来实现同步等待的效果。当刷盘结束、调用wakeupCustomer方法后才会调用其complete方法
                 return request.future();
             } else {
                 //不等待的话（PROPERTY_WAIT_STORE_MSG_OK的值为false），直接返回（也就是转换成异步）
@@ -905,9 +906,10 @@ public class CommitLog {
         else {
             //异步刷盘
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
-                //堆外内存处理方式
+                //普通处理方式（FlushRealTimeService）
                 flushCommitLogService.wakeup();
             } else {
+                //堆外内存处理方式（CommitRealTimeService）
                 commitLogService.wakeup();
             }
             return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
@@ -916,6 +918,7 @@ public class CommitLog {
 
     public CompletableFuture<PutMessageStatus> submitReplicaRequest(AppendMessageResult result, MessageExt messageExt) {
         if (BrokerRole.SYNC_MASTER == this.defaultMessageStore.getMessageStoreConfig().getBrokerRole()) {
+            //同步复制
             HAService service = this.defaultMessageStore.getHaService();
             if (messageExt.isWaitStoreMsgOK()) {
                 if (service.isSlaveOK(result.getWroteBytes() + result.getWroteOffset())) {
@@ -1075,17 +1078,20 @@ public class CommitLog {
                 }
 
                 try {
+                    //将待提交数据提交到内存映射共享区中（内部会使用堆外内存的方式）
                     boolean result = CommitLog.this.mappedFileQueue.commit(commitDataLeastPages);
                     long end = System.currentTimeMillis();
                     if (!result) {
                         this.lastCommitTimestamp = end; // result = false means some data committed.
                         //now wake up flush thread.
+                        //唤醒刷盘线程进行刷盘
                         flushCommitLogService.wakeup();
                     }
 
                     if (end - begin > 500) {
                         log.info("Commit data to file costs {} ms", end - begin);
                     }
+                    //等待200ms后再执行下一次任务
                     this.waitForRunning(interval);
                 } catch (Throwable e) {
                     CommitLog.log.error(this.getServiceName() + " service has exception. ", e);
@@ -1128,6 +1134,7 @@ public class CommitLog {
                 }
 
                 try {
+                    //刷盘前先等待，flushCommitLogTimed为true则使用Thead.sleep的方式休眠；flushCommitLogTimed为false则使用wait（CountDownLatch2）的方式休眠，
                     if (flushCommitLogTimed) {
                         Thread.sleep(interval);
                     } else {
@@ -1139,7 +1146,9 @@ public class CommitLog {
                     }
 
                     long begin = System.currentTimeMillis();
+                    //执行刷盘
                     CommitLog.this.mappedFileQueue.flush(flushPhysicQueueLeastPages);
+                    //更新刷盘检测点checkpoint
                     long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                     if (storeTimestamp > 0) {
                         CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
@@ -1246,13 +1255,16 @@ public class CommitLog {
                     // two times the flush
                     boolean flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     for (int i = 0; i < 2 && !flushOK; i++) {
+                        //执行刷盘
                         CommitLog.this.mappedFileQueue.flush(0);
                         flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     }
 
+                    //是否刷盘成功，调用CompletableFuture.complete方法将刷盘结果放进去
                     req.wakeupCustomer(flushOK ? PutMessageStatus.PUT_OK : PutMessageStatus.FLUSH_DISK_TIMEOUT);
                 }
 
+                //更新刷盘检测点checkpoint
                 long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                 if (storeTimestamp > 0) {
                     CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);

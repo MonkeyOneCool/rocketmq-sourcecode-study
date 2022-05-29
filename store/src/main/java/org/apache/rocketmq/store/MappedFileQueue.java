@@ -370,14 +370,18 @@ public class MappedFileQueue {
         if (null == mfs)
             return 0;
 
+        //只需要遍历到倒数第二个文件即可，因为最后一个文件是最新的，不需要删除
         int mfsLength = mfs.length - 1;
         int deleteCount = 0;
         List<MappedFile> files = new ArrayList<MappedFile>();
         if (null != mfs) {
+            //遍历CommitLog文件
             for (int i = 0; i < mfsLength; i++) {
                 MappedFile mappedFile = (MappedFile) mfs[i];
+                //文件的存活时间=最后一次的更新时间+72小时
                 long liveMaxTimestamp = mappedFile.getLastModifiedTimestamp() + expiredTime;
                 if (System.currentTimeMillis() >= liveMaxTimestamp || cleanImmediately) {
+                    //如果党建时间大于存活时间，又或者需要立即删除文件的话，执行destroy方法删除文件、释放资源
                     if (mappedFile.destroy(intervalForcibly)) {
                         files.add(mappedFile);
                         deleteCount++;
@@ -402,6 +406,7 @@ public class MappedFileQueue {
             }
         }
 
+        //最后删除缓存
         deleteExpiredFile(files);
 
         return deleteCount;
