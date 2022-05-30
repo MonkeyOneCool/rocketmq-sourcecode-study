@@ -760,7 +760,7 @@ public class CommitLog {
 
         //刷盘
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
-        //主从同步复制
+        //主从同步复制（HAClient向从节点发送NIO网络通信请求）
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {
@@ -894,7 +894,7 @@ public class CommitLog {
                         this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
                 flushDiskWatcher.add(request);
                 service.putRequest(request);
-                //返回一个空的CompletableFuture对象，以此来实现同步等待的效果。当刷盘结束、调用wakeupCustomer方法后才会调用其complete方法
+                //返回一个空的CompletableFuture对象，以此来实现同步等待的效果。当刷盘结束、调用wakeupCustomer方法后会调用CompletableFuture的complete方法
                 return request.future();
             } else {
                 //不等待的话（PROPERTY_WAIT_STORE_MSG_OK的值为false），直接返回（也就是转换成异步）
@@ -1283,6 +1283,7 @@ public class CommitLog {
 
             while (!this.isStopped()) {
                 try {
+                    //刷盘的空闲间隔为10ms
                     this.waitForRunning(10);
                     this.doCommit();
                 } catch (Exception e) {

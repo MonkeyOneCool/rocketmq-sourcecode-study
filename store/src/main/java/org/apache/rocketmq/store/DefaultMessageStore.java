@@ -194,6 +194,7 @@ public class DefaultMessageStore implements MessageStore {
 
                 this.indexService.load(lastExitOK);
 
+                //文件恢复
                 this.recover(lastExitOK);
 
                 log.info("load over, and the max phy offset = {}", this.getMaxPhyOffset());
@@ -1376,7 +1377,7 @@ public class DefaultMessageStore implements MessageStore {
     private void cleanFilesPeriodically() {
         //定时删除过期CommitLog文件
         this.cleanCommitLogService.run();
-        //定时删除过期ConsumeQueue文件
+        //定时删除过期ConsumeQueue文件和Index文件
         this.cleanConsumeQueueService.run();
     }
 
@@ -1904,6 +1905,7 @@ public class DefaultMessageStore implements MessageStore {
 
                 for (ConcurrentMap<Integer, ConsumeQueue> maps : tables.values()) {
                     for (ConsumeQueue logic : maps.values()) {
+                        //删除ConsumeQueue文件（和deleteExpiredFileByTime方法实现类似）
                         int deleteCount = logic.deleteExpiredFile(minOffset);
 
                         if (deleteCount > 0 && deleteLogicsFilesInterval > 0) {
@@ -1915,6 +1917,7 @@ public class DefaultMessageStore implements MessageStore {
                     }
                 }
 
+                //删除Index文件
                 DefaultMessageStore.this.indexService.deleteExpiredFile(minOffset);
             }
         }
@@ -2145,6 +2148,7 @@ public class DefaultMessageStore implements MessageStore {
 
             while (!this.isStopped()) {
                 try {
+                    //间隔时间1ms
                     Thread.sleep(1);
                     this.doReput();
                 } catch (Exception e) {

@@ -381,7 +381,7 @@ public class MappedFileQueue {
                 //文件的存活时间=最后一次的更新时间+72小时
                 long liveMaxTimestamp = mappedFile.getLastModifiedTimestamp() + expiredTime;
                 if (System.currentTimeMillis() >= liveMaxTimestamp || cleanImmediately) {
-                    //如果党建时间大于存活时间，又或者需要立即删除文件的话，执行destroy方法删除文件、释放资源
+                    //如果当前时间大于等于存活时间，又或者需要立即删除文件的话，执行destroy方法删除文件、释放资源
                     if (mappedFile.destroy(intervalForcibly)) {
                         files.add(mappedFile);
                         deleteCount++;

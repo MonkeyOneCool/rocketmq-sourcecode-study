@@ -403,11 +403,13 @@ public class ConsumeQueue {
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                     request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
+                //更新刷盘检测点checkpoint
                 if (this.defaultMessageStore.getMessageStoreConfig().getBrokerRole() == BrokerRole.SLAVE ||
                         this.defaultMessageStore.getMessageStoreConfig().isEnableDLegerCommitLog()) {
                     this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(request.getStoreTimestamp());
                 }
                 this.defaultMessageStore.getStoreCheckpoint().setLogicsMsgTimestamp(request.getStoreTimestamp());
+                //MQTT
                 if (multiQueue) {
                     multiDispatchLmqQueue(request, maxRetries);
                 }
