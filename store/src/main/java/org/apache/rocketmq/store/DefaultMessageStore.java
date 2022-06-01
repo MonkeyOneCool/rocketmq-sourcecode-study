@@ -577,6 +577,7 @@ public class DefaultMessageStore implements MessageStore {
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
+        //获取消息队列
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
             minOffset = consumeQueue.getMinOffsetInQueue();
@@ -599,6 +600,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
+                //从offset处拉取ConsumeQueue文件信息
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -615,8 +617,11 @@ public class DefaultMessageStore implements MessageStore {
 
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
                         for (; i < bufferConsumeQueue.getSize() && i < maxFilterMessageCount; i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
+                            //从ConsumeQueue文件中获取CommitLog偏移量
                             long offsetPy = bufferConsumeQueue.getByteBuffer().getLong();
+                            //从ConsumeQueue文件中获取文件大小
                             int sizePy = bufferConsumeQueue.getByteBuffer().getInt();
+                            //从ConsumeQueue文件中获取tag hashcode
                             long tagsCode = bufferConsumeQueue.getByteBuffer().getLong();
 
                             maxPhyOffsetPulling = offsetPy;
@@ -655,6 +660,7 @@ public class DefaultMessageStore implements MessageStore {
                                 continue;
                             }
 
+                            //通过ConsumeQueue文件中记录的CommitLog起始偏移量和文件大小来从CommitLog文件中获取消息
                             SelectMappedBufferResult selectResult = this.commitLog.getMessage(offsetPy, sizePy);
                             if (null == selectResult) {
                                 if (getResult.getBufferTotalSize() == 0) {
@@ -2064,6 +2070,7 @@ public class DefaultMessageStore implements MessageStore {
                                     //开始分发（ConsumeQueue和Index）
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    //如果Broker开启了长轮询模式，帮且当前是主节点的话，则调用pullRequestHoldService的notifyMessageArriving方法
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {

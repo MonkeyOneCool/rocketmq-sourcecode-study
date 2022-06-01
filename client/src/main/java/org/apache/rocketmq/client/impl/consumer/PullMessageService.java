@@ -89,7 +89,7 @@ public class PullMessageService extends ServiceThread {
 
         while (!this.isStopped()) {
             try {
-                //拉取消息是从队列中拉取的，每次取一个
+                //拉取消息是从队列中拉取的，每次取一个（取不到则阻塞住）
                 PullRequest pullRequest = this.pullRequestQueue.take();
                 this.pullMessage(pullRequest);
             } catch (InterruptedException ignored) {
