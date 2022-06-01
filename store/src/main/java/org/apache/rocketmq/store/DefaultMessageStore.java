@@ -2070,7 +2070,7 @@ public class DefaultMessageStore implements MessageStore {
                                     //开始分发（ConsumeQueue和Index）
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
-                                    //如果Broker开启了长轮询模式，帮且当前是主节点的话，则调用pullRequestHoldService的notifyMessageArriving方法
+                                    //如果Broker开启了长轮询模式，帮且当前是主节点的话，则直接调用pullRequestHoldService的notifyMessageArriving方法，以此来尝试拉取消息
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {

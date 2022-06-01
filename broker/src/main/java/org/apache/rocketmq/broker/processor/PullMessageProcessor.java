@@ -585,6 +585,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 }
             }
         };
+        //拉取完消息后放入消费者线程池中
         this.brokerController.getPullMessageExecutor().submit(new RequestTask(run, channel, request));
     }
 
